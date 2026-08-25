@@ -1,0 +1,366 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>Arabisch → MP3 (Google Text-to-Speech)</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --border: #dfe3e8;
+    --text: #1b1f24;
+    --muted: #6b7280;
+    --accent: #2f6feb;
+    --ok: #1a7f45;
+    --err: #c0392b;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c; --card: #1c2027; --border: #2e343d;
+      --text: #e7eaee; --muted: #9aa4b2; --accent: #5b8dff;
+      --ok: #4ac57e; --err: #ff7a6b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px 60px;
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
+  }
+  label { display: block; font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+  textarea, input, select {
+    width: 100%; padding: 10px 12px; font-size: 15px; color: var(--text);
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    font-family: inherit;
+  }
+  textarea { min-height: 190px; resize: vertical; direction: rtl; text-align: right; font-size: 19px; line-height: 1.9; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row > div { flex: 1 1 180px; }
+  .hint { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  button {
+    font: inherit; font-weight: 600; padding: 10px 18px; border-radius: 8px;
+    border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer;
+  }
+  button.secondary { background: transparent; color: var(--accent); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td.num { width: 46px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  td.txt { direction: rtl; text-align: right; font-size: 18px; }
+  td.state { width: 120px; font-size: 13px; }
+  td.audio { width: 230px; }
+  audio { width: 220px; height: 32px; }
+  .ok { color: var(--ok); } .err { color: var(--err); }
+  .msg { padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; margin-top: 12px; }
+  .msg.ok { border-color: var(--ok); }
+  .msg.err { border-color: var(--err); }
+  code { background: var(--bg); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Arabisch → MP3</h1>
+  <p class="sub">Google Cloud Text-to-Speech · jede Zeile wird eine eigene, durchnummerierte MP3 · Download als ZIP</p>
+
+  <div class="card" id="keyCard" hidden>
+    <label for="apiKey">Google API-Key</label>
+    <input id="apiKey" type="password" placeholder="AIza..." autocomplete="off" spellcheck="false">
+    <p class="hint">Auf dem Server ist keine <code>GOOGLE_TTS_API_KEY</code> gesetzt. Der Key wird nur lokal im Browser gespeichert und pro Anfrage an die eigene Serverless-Funktion geschickt.</p>
+    <div class="actions">
+      <button class="secondary" type="button" id="testKey">Key testen</button>
+    </div>
+    <div id="keyMsg"></div>
+  </div>
+
+  <div class="card">
+    <label for="text">Arabischer Text – eine Zeile pro MP3</label>
+    <textarea id="text" placeholder="السلام عليكم&#10;كيف حالك؟&#10;شكرا جزيلا"></textarea>
+    <p class="hint" id="lineInfo">0 Zeilen</p>
+
+    <div class="row" style="margin-top:14px">
+      <div>
+        <label for="voice">Stimme</label>
+        <select id="voice">
+          <option value="ar-XA-Wavenet-A">ar-XA-Wavenet-A (weiblich)</option>
+          <option value="ar-XA-Wavenet-B">ar-XA-Wavenet-B (männlich)</option>
+          <option value="ar-XA-Wavenet-C">ar-XA-Wavenet-C (männlich)</option>
+          <option value="ar-XA-Wavenet-D">ar-XA-Wavenet-D (weiblich)</option>
+          <option value="ar-XA-Standard-A">ar-XA-Standard-A (weiblich)</option>
+          <option value="ar-XA-Standard-B">ar-XA-Standard-B (männlich)</option>
+          <option value="ar-XA-Standard-C">ar-XA-Standard-C (männlich)</option>
+          <option value="ar-XA-Standard-D">ar-XA-Standard-D (weiblich)</option>
+        </select>
+      </div>
+      <div>
+        <label for="rate">Geschwindigkeit</label>
+        <input id="rate" type="number" value="1" min="0.25" max="4" step="0.05">
+      </div>
+      <div>
+        <label for="pitch">Pitch</label>
+        <input id="pitch" type="number" value="0" min="-20" max="20" step="0.5">
+      </div>
+      <div>
+        <label for="pad">Dateinamen</label>
+        <select id="pad">
+          <option value="1">001.mp3, 002.mp3 …</option>
+          <option value="0">1.mp3, 2.mp3 …</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="button" id="run">MP3s erzeugen</button>
+      <button type="button" id="zip" class="secondary" disabled>ZIP herunterladen</button>
+      <span id="status" class="hint"></span>
+    </div>
+    <div id="msg"></div>
+  </div>
+
+  <div class="card" id="resultCard" hidden>
+    <table>
+      <thead><tr><th>Nr.</th><th>Text</th><th>Status</th><th>Vorschau</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let hasServerKey = false;
+let results = [];
+
+const lines = () => $('text').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+
+function updateLineInfo() {
+  const n = lines().length;
+  $('lineInfo').textContent = n === 1 ? '1 Zeile' : n + ' Zeilen';
+}
+$('text').addEventListener('input', updateLineInfo);
+
+function show(el, text, kind) {
+  el.innerHTML = text ? '<div class="msg ' + (kind || '') + '">' + text + '</div>' : '';
+}
+
+// --- Key-Handling ---------------------------------------------------------
+fetch('/api/tts', { cache: 'no-store' })
+  .then(r => r.json())
+  .then(d => {
+    hasServerKey = !!d.hasServerKey;
+    if (!hasServerKey) {
+      $('keyCard').hidden = false;
+      $('apiKey').value = localStorage.getItem('ttsKey') || '';
+    }
+  })
+  .catch(() => { $('keyCard').hidden = false; });
+
+$('apiKey').addEventListener('change', () => localStorage.setItem('ttsKey', $('apiKey').value.trim()));
+
+$('testKey').addEventListener('click', async () => {
+  const key = $('apiKey').value.trim();
+  localStorage.setItem('ttsKey', key);
+  show($('keyMsg'), 'Teste …');
+  try {
+    const r = await fetch('/api/voices?languageCode=ar-XA&apiKey=' + encodeURIComponent(key), { cache: 'no-store' });
+    const d = await r.json();
+    if (!r.ok) return show($('keyMsg'), 'Fehler: ' + (d.error || r.status), 'err');
+    show($('keyMsg'), 'Key gültig · ' + d.voices.length + ' arabische Stimmen verfügbar.', 'ok');
+    if (d.voices.length) {
+      $('voice').innerHTML = d.voices
+        .map(v => '<option value="' + v.name + '">' + v.name + ' (' + (v.gender || '') + ')</option>')
+        .join('');
+      $('voice').value = d.voices.some(v => v.name === 'ar-XA-Wavenet-A') ? 'ar-XA-Wavenet-A' : d.voices[0].name;
+    }
+  } catch (e) {
+    show($('keyMsg'), 'Fehler: ' + e.message, 'err');
+  }
+});
+
+// --- Synthese -------------------------------------------------------------
+function fileName(index, total) {
+  const padded = $('pad').value === '1'
+    ? String(index).padStart(String(total).length < 3 ? 3 : String(total).length, '0')
+    : String(index);
+  return padded + '.mp3';
+}
+
+async function synth(text) {
+  const body = {
+    text,
+    voice: $('voice').value,
+    speakingRate: parseFloat($('rate').value) || 1,
+    pitch: parseFloat($('pitch').value) || 0
+  };
+  if (!hasServerKey) body.apiKey = $('apiKey').value.trim();
+
+  const r = await fetch('/api/tts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+    body: JSON.stringify(body)
+  });
+  const d = await r.json();
+  if (!r.ok || !d.audioContent) throw new Error(d.error || ('HTTP ' + r.status));
+  return d.audioContent;
+}
+
+function b64ToBytes(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+$('run').addEventListener('click', async () => {
+  const items = lines();
+  if (!items.length) return show($('msg'), 'Bitte mindestens eine Zeile eingeben.', 'err');
+  if (!hasServerKey && !$('apiKey').value.trim()) return show($('msg'), 'Bitte den API-Key eintragen.', 'err');
+
+  $('run').disabled = true;
+  $('zip').disabled = true;
+  show($('msg'), '');
+  results = items.map((t, i) => ({ n: i + 1, text: t, name: fileName(i + 1, items.length), bytes: null, error: null }));
+
+  $('resultCard').hidden = false;
+  $('rows').innerHTML = results.map(r =>
+    '<tr><td class="num">' + r.n + '</td><td class="txt">' + r.text.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) +
+    '</td><td class="state" id="st' + r.n + '">wartet …</td><td class="audio" id="au' + r.n + '"></td></tr>'
+  ).join('');
+
+  let done = 0, failed = 0;
+  const CONCURRENCY = 3;
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < results.length) {
+      const r = results[cursor++];
+      $('st' + r.n).textContent = 'läuft …';
+      try {
+        const b64 = await synth(r.text);
+        r.bytes = b64ToBytes(b64);
+        $('st' + r.n).innerHTML = '<span class="ok">' + r.name + '</span>';
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.preload = 'none';
+        audio.src = URL.createObjectURL(new Blob([r.bytes], { type: 'audio/mpeg' }));
+        $('au' + r.n).appendChild(audio);
+      } catch (e) {
+        r.error = e.message;
+        failed++;
+        $('st' + r.n).innerHTML = '<span class="err">Fehler</span>';
+        $('au' + r.n).innerHTML = '<span class="hint err">' + e.message + '</span>';
+      }
+      done++;
+      $('status').textContent = done + ' / ' + results.length;
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, results.length) }, worker));
+
+  $('run').disabled = false;
+  const okCount = results.filter(r => r.bytes).length;
+  $('zip').disabled = okCount === 0;
+  show($('msg'),
+    okCount + ' von ' + results.length + ' MP3s erzeugt' + (failed ? ' · ' + failed + ' fehlgeschlagen' : '') + '.',
+    failed ? 'err' : 'ok');
+});
+
+// --- ZIP (store, ohne Kompression) ---------------------------------------
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[i] = c >>> 0;
+  }
+  return t;
+})();
+
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+const DOS_DATE = ((2024 - 1980) << 9) | (1 << 5) | 1; // 2024-01-01, feste Zeit für reproduzierbare ZIPs
+
+function buildZip(files) {
+  const enc = new TextEncoder();
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+
+  const u16 = (v) => [v & 0xFF, (v >>> 8) & 0xFF];
+  const u32 = (v) => [v & 0xFF, (v >>> 8) & 0xFF, (v >>> 16) & 0xFF, (v >>> 24) & 0xFF];
+
+  for (const f of files) {
+    const nameBytes = enc.encode(f.name);
+    const crc = crc32(f.bytes);
+    const local = [
+      ...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(DOS_DATE),
+      ...u32(crc), ...u32(f.bytes.length), ...u32(f.bytes.length),
+      ...u16(nameBytes.length), ...u16(0)
+    ];
+    chunks.push(new Uint8Array(local), nameBytes, f.bytes);
+    central.push({ name: nameBytes, crc, size: f.bytes.length, offset });
+    offset += local.length + nameBytes.length + f.bytes.length;
+  }
+
+  const centralStart = offset;
+  let centralSize = 0;
+  for (const c of central) {
+    const head = [
+      ...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(0), ...u16(DOS_DATE),
+      ...u32(c.crc), ...u32(c.size), ...u32(c.size),
+      ...u16(c.name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(c.offset)
+    ];
+    chunks.push(new Uint8Array(head), c.name);
+    centralSize += head.length + c.name.length;
+  }
+
+  chunks.push(new Uint8Array([
+    ...u32(0x06054b50), ...u16(0), ...u16(0),
+    ...u16(central.length), ...u16(central.length),
+    ...u32(centralSize), ...u32(centralStart), ...u16(0)
+  ]));
+
+  return new Blob(chunks, { type: 'application/zip' });
+}
+
+$('zip').addEventListener('click', () => {
+  const ok = results.filter(r => r.bytes);
+  if (!ok.length) return;
+
+  const manifest = new TextEncoder().encode(
+    '﻿' + results.map(r => r.n + '\t' + (r.bytes ? r.name : 'FEHLER: ' + r.error) + '\t' + r.text).join('\r\n') + '\r\n'
+  );
+  const files = ok.map(r => ({ name: r.name, bytes: r.bytes }));
+  files.push({ name: 'liste.txt', bytes: manifest });
+
+  const url = URL.createObjectURL(buildZip(files));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'arabisch-mp3.zip';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+});
+
+updateLineInfo();
+</script>
+</body>
+</html>
