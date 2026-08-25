@@ -95,14 +95,18 @@
       <div>
         <label for="voice">Stimme</label>
         <select id="voice">
-          <option value="ar-XA-Wavenet-A">ar-XA-Wavenet-A (weiblich)</option>
-          <option value="ar-XA-Wavenet-B">ar-XA-Wavenet-B (männlich)</option>
-          <option value="ar-XA-Wavenet-C">ar-XA-Wavenet-C (männlich)</option>
-          <option value="ar-XA-Wavenet-D">ar-XA-Wavenet-D (weiblich)</option>
-          <option value="ar-XA-Standard-A">ar-XA-Standard-A (weiblich)</option>
-          <option value="ar-XA-Standard-B">ar-XA-Standard-B (männlich)</option>
-          <option value="ar-XA-Standard-C">ar-XA-Standard-C (männlich)</option>
-          <option value="ar-XA-Standard-D">ar-XA-Standard-D (weiblich)</option>
+          <optgroup label="Wavenet">
+            <option value="ar-XA-Wavenet-A">ar-XA-Wavenet-A (weiblich)</option>
+            <option value="ar-XA-Wavenet-B">ar-XA-Wavenet-B (männlich)</option>
+            <option value="ar-XA-Wavenet-C">ar-XA-Wavenet-C (männlich)</option>
+            <option value="ar-XA-Wavenet-D">ar-XA-Wavenet-D (weiblich)</option>
+          </optgroup>
+          <optgroup label="Standard">
+            <option value="ar-XA-Standard-A">ar-XA-Standard-A (weiblich)</option>
+            <option value="ar-XA-Standard-B">ar-XA-Standard-B (männlich)</option>
+            <option value="ar-XA-Standard-C">ar-XA-Standard-C (männlich)</option>
+            <option value="ar-XA-Standard-D">ar-XA-Standard-D (weiblich)</option>
+          </optgroup>
         </select>
       </div>
       <div>
@@ -160,33 +164,60 @@ fetch('/api/tts', { cache: 'no-store' })
   .then(r => r.json())
   .then(d => {
     hasServerKey = !!d.hasServerKey;
-    if (!hasServerKey) {
-      $('keyCard').hidden = false;
-      $('apiKey').value = localStorage.getItem('ttsKey') || '';
-    }
+    if (hasServerKey) return loadVoices(false);
+    $('keyCard').hidden = false;
+    $('apiKey').value = localStorage.getItem('ttsKey') || '';
+    if ($('apiKey').value) loadVoices(false);
   })
   .catch(() => { $('keyCard').hidden = false; });
 
-$('apiKey').addEventListener('change', () => localStorage.setItem('ttsKey', $('apiKey').value.trim()));
+$('apiKey').addEventListener('change', () => {
+  localStorage.setItem('ttsKey', $('apiKey').value.trim());
+  loadVoices(false);
+});
 
-$('testKey').addEventListener('click', async () => {
-  const key = $('apiKey').value.trim();
-  localStorage.setItem('ttsKey', key);
-  show($('keyMsg'), 'Teste …');
+const GENDER = { MALE: 'männlich', FEMALE: 'weiblich', NEUTRAL: 'neutral' };
+
+// Stimmen von Google holen. verbose = Ergebnis auch bei Erfolg melden.
+async function loadVoices(verbose) {
+  const key = hasServerKey ? '' : $('apiKey').value.trim();
+  if (!hasServerKey && !key) return;
+  if (verbose) show($('keyMsg'), 'Teste …');
+
   try {
     const r = await fetch('/api/voices?languageCode=ar-XA&apiKey=' + encodeURIComponent(key), { cache: 'no-store' });
     const d = await r.json();
-    if (!r.ok) return show($('keyMsg'), 'Fehler: ' + (d.error || r.status), 'err');
-    show($('keyMsg'), 'Key gültig · ' + d.voices.length + ' arabische Stimmen verfügbar.', 'ok');
+    if (!r.ok) {
+      show($('keyMsg'), 'API-Key abgelehnt: ' + (d.error || r.status), 'err');
+      return;
+    }
     if (d.voices.length) {
-      $('voice').innerHTML = d.voices
-        .map(v => '<option value="' + v.name + '">' + v.name + ' (' + (v.gender || '') + ')</option>')
-        .join('');
+      const groups = {};
+      for (const v of d.voices) {
+        const family = v.name.split('-')[2] || 'Sonstige';
+        (groups[family] = groups[family] || []).push(v);
+      }
+      const order = ['Wavenet', 'Neural2', 'Standard', 'Chirp3'];
+      const keys = Object.keys(groups).sort(
+        (a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99) || a.localeCompare(b)
+      );
+      $('voice').innerHTML = keys.map(k =>
+        '<optgroup label="' + k + '">' + groups[k].map(v =>
+          '<option value="' + v.name + '">' + v.name.replace('ar-XA-', '') +
+          ' (' + (GENDER[v.gender] || v.gender || '') + ')</option>'
+        ).join('') + '</optgroup>'
+      ).join('');
       $('voice').value = d.voices.some(v => v.name === 'ar-XA-Wavenet-A') ? 'ar-XA-Wavenet-A' : d.voices[0].name;
     }
+    show($('keyMsg'), 'Key gültig · ' + d.voices.length + ' arabische Stimmen geladen.', 'ok');
   } catch (e) {
     show($('keyMsg'), 'Fehler: ' + e.message, 'err');
   }
+}
+
+$('testKey').addEventListener('click', () => {
+  localStorage.setItem('ttsKey', $('apiKey').value.trim());
+  loadVoices(true);
 });
 
 // --- Synthese -------------------------------------------------------------
